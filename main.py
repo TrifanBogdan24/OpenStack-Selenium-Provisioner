@@ -76,26 +76,26 @@ def run_automation():
         smart_action(driver, wait, By.ID, "name", "type", USERNAME, "Nume Instanta")
 
         # Pas 13: Tab Source
-        smart_action(driver, wait, By.XPATH, "//a[contains(text(), 'Source')]", "click", step_name="Tab Source")
+        smart_action(driver, wait, By.XPATH, "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[2]//a[1]", "click", step_name="Tab Source")
 
         # Pas 14 & 15: Search Source
         # Am curatat XPath-ul tau pentru a fi mai stabil
         source_search_xpath = "//hz-dynamic-table[contains(@items, 'sourceItems')]//input[@placeholder='Click here for filters or full text search.']"
-        smart_action(driver, wait, By.XPATH, source_search_xpath, "type", "CC template", "Search Source")
+        smart_action(driver, wait, By.XPATH, source_search_xpath, "type", "CC Template", "Search Source")
         time.sleep(2) # Timp pentru filtrare
 
         # Pas 16: Add Icon
         # Am scos 'ng-leave-prepare' care e instabila
-        smart_action(driver, wait, By.XPATH, "//tr[contains(., 'CC template')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add CC template")
+        # smart_action(driver, wait, By.XPATH, "//tr[contains(., 'CC Template')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add 'CC Template'")
 
         # Pas 17 & 18: Tab Flavor & Search
-        smart_action(driver, wait, By.XPATH, "//a[contains(text(), 'Flavor')]", "click", step_name="Tab Flavor")
+        smart_action(driver, wait, By.XPATH, "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[3]//a[1]", "click", step_name="Tab Flavor")
         flavor_search_xpath = "//hz-dynamic-table[@name='allocated-flavor']//input[@placeholder='Click here for filters or full text search.']"
         smart_action(driver, wait, By.XPATH, flavor_search_xpath, "type", "g.medium", "Search Flavor")
         time.sleep(2)
 
         # Pas 19: Add Icon Flavor
-        smart_action(driver, wait, By.XPATH, "//tr[contains(., 'g.medium')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add g.medium")
+        # smart_action(driver, wait, By.XPATH, "//tr[contains(., 'g.medium')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add g.medium")
 
         # Pas 20 & 21: Networks
         smart_action(driver, wait, By.XPATH, "//span[normalize-space()='Networks']", "click", step_name="Tab Networks")
@@ -109,7 +109,7 @@ def run_automation():
         time.sleep(2)
 
         # Pas 22: Add Icon Network
-        smart_action(driver, wait, By.XPATH, "//tr[contains(., 'vlan9')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add vlan9")
+        # smart_action(driver, wait, By.XPATH, "//tr[contains(., 'vlan9')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add vlan9")
 
         # Pas 23: Final Launch
         smart_action(driver, wait, By.XPATH, "//button[contains(@class, 'btn-primary') and contains(., 'Launch Instance')]", "click", step_name="Launch Final")
