@@ -8,8 +8,16 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.firefox import GeckoDriverManager
 
+
 USERNAME = os.getenv('MODDLE_USERNAME')
 PASSWORD = os.getenv('MODDLE_PASSWORD')
+
+
+INSTANCE_NAME = f"cc_lab_{USERNAME}"
+IMAGE_NAME = "CC Template"
+FLAVOR_NAME = "g.medium"
+NETWORK_NAME = "vlan9"
+
 
 def enable_visual_click(driver):
     js_code = """
@@ -21,6 +29,15 @@ def enable_visual_click(driver):
     }, true);
     """
     driver.execute_script(js_code)
+
+def type_text(by, value, text, description):
+    try:
+        element = wait.until(EC.presence_of_element_located((by, value)))
+        element.clear()
+        element.send_keys(text)
+        print(f"[OK] {description}")
+    except TimeoutException:
+        fail_fast(f"Nu am găsit câmpul: {description}")
 
 def smart_action(driver, wait, by, locator, action_type, value=None, step_name=""):
     """Executa o actiune (click sau type) cu timeout de 15 secunde si raportare eroare."""
@@ -86,7 +103,7 @@ def run_automation():
 
         # Pas 16: Add Icon
         # Am scos 'ng-leave-prepare' care e instabila
-        # smart_action(driver, wait, By.XPATH, "//tr[contains(., 'CC Template')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add 'CC Template'")
+        smart_action(driver, wait, By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/wizard[1]/div[1]/div[2]/div[2]/div[2]/div[2]/ng-include[1]/div[1]/div[1]/transfer-table[1]/div[1]/div[2]/div[2]/hz-dynamic-table[1]/hz-magic-search-context[1]/div[1]/table[1]/tbody[1]/tr[1]/td[8]/actions[1]/action-list[1]/button[1]", "click", step_name="Add 'CC Template'")
 
         # Pas 17 & 18: Tab Flavor & Search
         smart_action(driver, wait, By.XPATH, "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[3]//a[1]", "click", step_name="Tab Flavor")
@@ -95,21 +112,12 @@ def run_automation():
         time.sleep(2)
 
         # Pas 19: Add Icon Flavor
-        # smart_action(driver, wait, By.XPATH, "//tr[contains(., 'g.medium')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add g.medium")
+        smart_action(driver, wait, By.XPATH, "//tbody/tr[@class='ng-scope']/td[10]/actions[1]/action-list[1]/button[1]", "click", step_name="Add g.medium")
 
         # Pas 20 & 21: Networks
         smart_action(driver, wait, By.XPATH, "//span[normalize-space()='Networks']", "click", step_name="Tab Networks")
-        net_search_xpath = "//hz-dynamic-table[contains(@items, 'network')]//input[@placeholder='Click here for filters or full text search.']"
-        # Daca XPath-ul de mai sus esueaza, Horizon foloseste adesea un input generic in Networks:
-        try:
-            smart_action(driver, wait, By.XPATH, net_search_xpath, "type", "vlan9", "Search Network")
-        except:
-            smart_action(driver, wait, By.XPATH, "//input[@placeholder='Click here for filters or full text search.']", "type", "vlan9", "Search Network Generic")
-        
         time.sleep(2)
-
-        # Pas 22: Add Icon Network
-        # smart_action(driver, wait, By.XPATH, "//tr[contains(., 'vlan9')]//button[contains(@class, 'fa-arrow-up')]", "click", step_name="Add vlan9")
+        smart_action(driver, wait, By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/wizard[1]/div[1]/div[2]/div[2]/div[2]/div[4]/ng-include[1]/div[1]/transfer-table[1]/div[1]/div[2]/div[2]/hz-dynamic-table[1]/hz-magic-search-context[1]/div[1]/table[1]/tbody[1]/tr[1]/td[8]/actions[1]/action-list[1]/button[1]", "click", step_name="Add vlan9")
 
         # Pas 23: Final Launch
         smart_action(driver, wait, By.XPATH, "//button[contains(@class, 'btn-primary') and contains(., 'Launch Instance')]", "click", step_name="Launch Final")
