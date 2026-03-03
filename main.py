@@ -9,15 +9,41 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.firefox import GeckoDriverManager
 
 
-USERNAME = os.getenv('MODDLE_USERNAME')
-PASSWORD = os.getenv('MODDLE_PASSWORD')
 
-
-INSTANCE_NAME = f"cc_lab_{USERNAME}"
 IMAGE_NAME = "CC Template"
 FLAVOR_NAME = "g.medium"
 NETWORK_NAME = "vlan9"
 
+
+XPATH_SIGN_IN_OPEN_STACK_BTN = "//span[normalize-space()='Sign In']"
+XPATH_OPEN_STACK_PROJECT_INSTANCES_TAB = "//a[normalize-space()='Instances']"
+XPATH_OPEN_STACK_CONTEXT_PROJECT = "//span[@class='context-project']"
+
+# Source TAB
+XPATH_LAUNCH_INSTANCE_SOURCE_TAB_BTN = "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[2]//a[1]"
+XPATH_LAUNCH_INSTANCE_SEARCH_SOURCE_IMAGE_TXT_BOX = "//hz-dynamic-table[contains(@items, 'sourceItems')]//input[@placeholder='Click here for filters or full text search.']"
+XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_SOURCE_IMAGE_BTN = "/html[1]/body[1]/div[1]/div[1]/div[1]/wizard[1]/div[1]/div[2]/div[2]/div[2]/div[2]/ng-include[1]/div[1]/div[1]/transfer-table[1]/div[1]/div[2]/div[2]/hz-dynamic-table[1]/hz-magic-search-context[1]/div[1]/table[1]/tbody[1]/tr[1]/td[8]/actions[1]/action-list[1]/button[1]"
+
+# Flavor TAB
+XPATH_LAUNCH_INSTANCE_FLAVOR_TAB_BTN = "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[3]//a[1]"
+XPATH_LAUNCH_INSTANCE_SEARCH_FLAVOR_TXT_BOX = "//hz-dynamic-table[@name='allocated-flavor']//input[@placeholder='Click here for filters or full text search.']"
+XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_FLAVOR_BTN = "//tbody/tr[@class='ng-scope']/td[10]/actions[1]/action-list[1]/button[1]"
+
+
+# Networks TAB
+XPATH_LAUNCH_INSTANCE_NETWORKS_TAB_BTN = "//span[normalize-space()='Networks']"
+# Nu am putut gasi un XPATH care sa functioneze pentru bara de search
+# Upload vlan9
+XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_NETWORK_BTN = "/html[1]/body[1]/div[1]/div[1]/div[1]/wizard[1]/div[1]/div[2]/div[2]/div[2]/div[4]/ng-include[1]/div[1]/transfer-table[1]/div[1]/div[2]/div[2]/hz-dynamic-table[1]/hz-magic-search-context[1]/div[1]/table[1]/tbody[1]/tr[1]/td[8]/actions[1]/action-list[1]/button[1]"
+
+XPATH_LAUNCH_INSTANCE_BTN = "//button[contains(@class, 'btn-primary') and contains(., 'Launch Instance')]"
+
+
+MODDLE_USERNAME = os.getenv('MODDLE_USERNAME')
+MODDLE_PASSWORD = os.getenv('MODDLE_PASSWORD')
+
+
+INSTANCE_NAME = f"cc_lab_{MODDLE_USERNAME}"
 
 def enable_visual_click(driver):
     js_code = """
@@ -39,7 +65,7 @@ def type_text(by, value, text, description):
     except TimeoutException:
         fail_fast(f"Nu am găsit câmpul: {description}")
 
-def smart_action(driver, wait, by, locator, action_type, value=None, step_name=""):
+def selenium_action(driver, wait, by, locator, action_type, value=None, step_name=""):
     """Executa o actiune (click sau type) cu timeout de 15 secunde si raportare eroare."""
     try:
         if action_type == "click":
@@ -56,7 +82,7 @@ def smart_action(driver, wait, by, locator, action_type, value=None, step_name="
         sys.exit(1)
 
 def run_automation():
-    if not USERNAME or not PASSWORD:
+    if not MODDLE_USERNAME or not MODDLE_PASSWORD:
         print("Seteaza USERNAME si PASSWORD in environment!")
         return
 
@@ -69,10 +95,10 @@ def run_automation():
         driver.maximize_window()
         enable_visual_click(driver)
 
-        smart_action(driver, wait, By.XPATH, "//span[normalize-space()='Sign In']", "click", step_name="Click Sign In")
-        smart_action(driver, wait, By.ID, "username", "type", USERNAME, "Type Username")
-        smart_action(driver, wait, By.ID, "password", "type", PASSWORD, "Type Password")
-        smart_action(driver, wait, By.ID, "kc-login", "click", step_name="Click Login")
+        selenium_action(driver, wait, By.XPATH, XPATH_SIGN_IN_OPEN_STACK_BTN, "click", step_name="Click Sign In")
+        selenium_action(driver, wait, By.ID, "username", "type", MODDLE_USERNAME, "Type Moddle Username")
+        selenium_action(driver, wait, By.ID, "password", "type", MODDLE_PASSWORD, "Type Moddle Password")
+        selenium_action(driver, wait, By.ID, "kc-login", "click", step_name="Click Login")
 
         # --- AUTH & PROJECT ---
         print("[OTP] Te rog introdu codul manual.")
@@ -80,47 +106,45 @@ def run_automation():
         enable_visual_click(driver)
         
         # Pas 8 & 9 din log-ul tau: Selectare Proiect
-        smart_action(driver, wait, By.XPATH, "//span[@class='context-project']", "click", step_name="Click Proiect")
+        selenium_action(driver, wait, By.XPATH, XPATH_OPEN_STACK_CONTEXT_PROJECT, "click", step_name="Click Proiect")
         
         # Pas 10: Instances
-        smart_action(driver, wait, By.XPATH, "//a[normalize-space()='Instances']", "click", step_name="Meniu Instances")
+        selenium_action(driver, wait, By.XPATH, XPATH_OPEN_STACK_PROJECT_INSTANCES_TAB, "click", step_name="Meniu Instances")
 
         # --- LANSARE VM ---
         # Pas 11: Launch Instance
-        smart_action(driver, wait, By.ID, "instances__action_launch-ng", "click", step_name="Buton Launch")
+        selenium_action(driver, wait, By.ID, "instances__action_launch-ng", "click", step_name="Buton Launch")
 
         # Pas 12: Name
-        smart_action(driver, wait, By.ID, "name", "type", USERNAME, "Nume Instanta")
+        selenium_action(driver, wait, By.ID, "name", "type", INSTANCE_NAME, "Nume Instanta")
 
         # Pas 13: Tab Source
-        smart_action(driver, wait, By.XPATH, "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[2]//a[1]", "click", step_name="Tab Source")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_SOURCE_TAB_BTN, "click", step_name="Tab Source")
 
         # Pas 14 & 15: Search Source
         # Am curatat XPath-ul tau pentru a fi mai stabil
-        source_search_xpath = "//hz-dynamic-table[contains(@items, 'sourceItems')]//input[@placeholder='Click here for filters or full text search.']"
-        smart_action(driver, wait, By.XPATH, source_search_xpath, "type", "CC Template", "Search Source")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_SEARCH_SOURCE_IMAGE_TXT_BOX, "type", "CC Template", "Search Source")
         time.sleep(2) # Timp pentru filtrare
 
         # Pas 16: Add Icon
         # Am scos 'ng-leave-prepare' care e instabila
-        smart_action(driver, wait, By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/wizard[1]/div[1]/div[2]/div[2]/div[2]/div[2]/ng-include[1]/div[1]/div[1]/transfer-table[1]/div[1]/div[2]/div[2]/hz-dynamic-table[1]/hz-magic-search-context[1]/div[1]/table[1]/tbody[1]/tr[1]/td[8]/actions[1]/action-list[1]/button[1]", "click", step_name="Add 'CC Template'")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_SOURCE_IMAGE_BTN, "click", step_name="Add 'CC Template'")
 
         # Pas 17 & 18: Tab Flavor & Search
-        smart_action(driver, wait, By.XPATH, "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[3]//a[1]", "click", step_name="Tab Flavor")
-        flavor_search_xpath = "//hz-dynamic-table[@name='allocated-flavor']//input[@placeholder='Click here for filters or full text search.']"
-        smart_action(driver, wait, By.XPATH, flavor_search_xpath, "type", "g.medium", "Search Flavor")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_FLAVOR_TAB_BTN, "click", step_name="Tab Flavor")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_SEARCH_FLAVOR_TXT_BOX, "type", "g.medium", "Search Flavor")
         time.sleep(2)
 
         # Pas 19: Add Icon Flavor
-        smart_action(driver, wait, By.XPATH, "//tbody/tr[@class='ng-scope']/td[10]/actions[1]/action-list[1]/button[1]", "click", step_name="Add g.medium")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_FLAVOR_BTN, "click", step_name="Add g.medium")
 
         # Pas 20 & 21: Networks
-        smart_action(driver, wait, By.XPATH, "//span[normalize-space()='Networks']", "click", step_name="Tab Networks")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_NETWORKS_TAB_BTN, "click", step_name="Tab Networks")
         time.sleep(2)
-        smart_action(driver, wait, By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[1]/wizard[1]/div[1]/div[2]/div[2]/div[2]/div[4]/ng-include[1]/div[1]/transfer-table[1]/div[1]/div[2]/div[2]/hz-dynamic-table[1]/hz-magic-search-context[1]/div[1]/table[1]/tbody[1]/tr[1]/td[8]/actions[1]/action-list[1]/button[1]", "click", step_name="Add vlan9")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_NETWORK_BTN, "click", step_name="Add vlan9")
 
         # Pas 23: Final Launch
-        smart_action(driver, wait, By.XPATH, "//button[contains(@class, 'btn-primary') and contains(., 'Launch Instance')]", "click", step_name="Launch Final")
+        selenium_action(driver, wait, By.XPATH, XPATH_LAUNCH_INSTANCE_BTN, "click", step_name="Launch Final")
 
         print("\n[FINISH] Scriptul a fost executat complet.")
 
