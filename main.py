@@ -22,12 +22,12 @@ XPATH_OPEN_STACK_CONTEXT_PROJECT = "//span[@class='context-project']"
 
 # Source TAB
 XPATH_LAUNCH_INSTANCE_SOURCE_TAB_BTN = "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[2]//a[1]"
-XPATH_LAUNCH_INSTANCE_SEARCH_SOURCE_IMAGE_TXT_BOX = "//hz-dynamic-table[contains(@items, 'sourceItems')]//input[@placeholder='Click here for filters or full text search.']"
+XPATH_LAUNCH_INSTANCE_SEARCH_SOURCE_IMAGE_TEXTBOX = "//hz-dynamic-table[contains(@items, 'sourceItems')]//input[@placeholder='Click here for filters or full text search.']"
 XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_SOURCE_IMAGE_BTN = "/html[1]/body[1]/div[1]/div[1]/div[1]/wizard[1]/div[1]/div[2]/div[2]/div[2]/div[2]/ng-include[1]/div[1]/div[1]/transfer-table[1]/div[1]/div[2]/div[2]/hz-dynamic-table[1]/hz-magic-search-context[1]/div[1]/table[1]/tbody[1]/tr[1]/td[8]/actions[1]/action-list[1]/button[1]"
 
 # Flavor TAB
 XPATH_LAUNCH_INSTANCE_FLAVOR_TAB_BTN = "//div[@class='col-xs-12 col-sm-3 wizard-navigation']//li[3]//a[1]"
-XPATH_LAUNCH_INSTANCE_SEARCH_FLAVOR_TXT_BOX = "//hz-dynamic-table[@name='allocated-flavor']//input[@placeholder='Click here for filters or full text search.']"
+XPATH_LAUNCH_INSTANCE_SEARCH_FLAVOR_TEXTBOX = "//hz-dynamic-table[@name='allocated-flavor']//input[@placeholder='Click here for filters or full text search.']"
 XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_FLAVOR_BTN = "//tbody/tr[@class='ng-scope']/td[10]/actions[1]/action-list[1]/button[1]"
 
 
@@ -40,6 +40,13 @@ XPATH_LAUNCH_INSTANCE_UPLOAD_TOPMOST_NETWORK_BTN = "/html[1]/body[1]/div[1]/div[
 XPATH_LAUNCH_INSTANCE_BTN = "//button[contains(@class, 'btn-primary') and contains(., 'Launch Instance')]"
 
 
+XPATH_FILTER_DROPDOWN_BTN = "//span[normalize-space()='Instance ID =']"
+XPATH_FILTER_DROPDOWN_SELECT_INSTANCE_NAME = "//a[@data-select-value='name']"
+XPATH_FILTER_TEXTBOX = "//input[@name='instances__filter__q']"
+XPATH_FILTER_BTN = "//button[@id='instances__action_filter']"
+
+XPATH_POWER_STATE_IS_RUNNING = "//td[normalize-space()='Running']"
+XPATH_TOPMOST_IP_ADDR_TXT = "//ul[@class='list-unstyled']"
 
 
 class SeleniumWebApp():
@@ -59,12 +66,17 @@ class SeleniumWebApp():
         self.driver.execute_script(js_code)
 
     
+    def wait_for_element(self, wait, by, locator):
+        return wait.until(EC.visibility_of_element_located((by, locator)))
+
+
     def type_in_textbox(self, wait, by, locator, text):
         element = wait.until(EC.visibility_of_element_located((by, locator)))
         element.clear()
         element.send_keys(text)
 
-
+    def get_text(self, by, locator):
+        return self.driver.find_element(by, locator).text
 
     def click_on(self, wait, by, locator):
         element = wait.until(EC.element_to_be_clickable((by, locator)))
@@ -91,7 +103,6 @@ def main():
     wait = WebDriverWait(driver, 15)
 
     selenium_webapp = SeleniumWebApp(driver)
-
 
     try:
         # --- LOGIN ---
@@ -127,7 +138,7 @@ def main():
 
         # Pas 14 & 15: Search Source
         # Am curatat XPath-ul tau pentru a fi mai stabil
-        selenium_webapp.type_in_textbox(wait, By.XPATH, XPATH_LAUNCH_INSTANCE_SEARCH_SOURCE_IMAGE_TXT_BOX, IMAGE)
+        selenium_webapp.type_in_textbox(wait, By.XPATH, XPATH_LAUNCH_INSTANCE_SEARCH_SOURCE_IMAGE_TEXTBOX, IMAGE)
         time.sleep(2)
 
         # Pas 16: Add Icon
@@ -136,7 +147,7 @@ def main():
 
         # Pas 17 & 18: Tab Flavor & Search
         selenium_webapp.click_on(wait, By.XPATH, XPATH_LAUNCH_INSTANCE_FLAVOR_TAB_BTN)
-        selenium_webapp.type_in_textbox(wait, By.XPATH, XPATH_LAUNCH_INSTANCE_SEARCH_FLAVOR_TXT_BOX, FLAVOR)
+        selenium_webapp.type_in_textbox(wait, By.XPATH, XPATH_LAUNCH_INSTANCE_SEARCH_FLAVOR_TEXTBOX, FLAVOR)
         time.sleep(2)
 
         # Pas 19: Add Icon Flavor
@@ -150,7 +161,27 @@ def main():
         # Pas 23: Final Launch
         selenium_webapp.click_on(wait, By.XPATH, XPATH_LAUNCH_INSTANCE_BTN)
 
-        print("\n[FINISH] Scriptul a fost executat complet.")
+        time.sleep(5)
+
+
+        selenium_webapp.click_on(wait, By.XPATH, XPATH_FILTER_DROPDOWN_BTN)
+        selenium_webapp.click_on(wait, By.XPATH, XPATH_FILTER_DROPDOWN_SELECT_INSTANCE_NAME)
+
+
+        selenium_webapp.type_in_textbox(wait, By.XPATH, XPATH_FILTER_TEXTBOX, INSTANCE_NAME)
+
+        selenium_webapp.click_on(wait, By.XPATH, XPATH_FILTER_BTN)
+
+        wait = WebDriverWait(driver, 120)
+        selenium_webapp.wait_for_element(wait, By.XPATH, XPATH_POWER_STATE_IS_RUNNING)
+        wait = WebDriverWait(driver, 15)
+
+
+        IP_ADDR = selenium_webapp.get_text(By.XPATH, XPATH_TOPMOST_IP_ADDR_TXT)
+
+        print()
+        print(f"VM IP: {IP_ADDR}")
+        print("[FINISH] Scriptul a fost executat complet.")
 
     except Exception as err:
         print(f"\n[EROARE NEASTEPTATA] {err}")
