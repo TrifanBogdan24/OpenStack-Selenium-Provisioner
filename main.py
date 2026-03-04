@@ -1,13 +1,17 @@
 import os
 import time
 from dotenv import load_dotenv
-import sys
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.firefox import GeckoDriverManager
+
+import paramiko
+import select
+import sys
+
 
 # VM Config Paramters
 IMAGE = "CC Template"
@@ -46,7 +50,7 @@ XPATH_FILTER_TEXTBOX = "//input[@name='instances__filter__q']"
 XPATH_FILTER_BTN = "//button[@id='instances__action_filter']"
 
 XPATH_POWER_STATE_IS_RUNNING = "//td[normalize-space()='Running']"
-XPATH_TOPMOST_IP_ADDR_TXT = "//ul[@class='list-unstyled']"
+XPATH_TOPMOST_IP_TXT = "//ul[@class='list-unstyled']"
 
 
 class SeleniumWebApp():
@@ -83,6 +87,99 @@ class SeleniumWebApp():
         element.click()
 
 
+class ProxyJumpSSH_Connection():
+    _FEP_HOSTNAME = "fep.grid.pub.ro"
+    _OPEN_STACK_VM_USER = "student"
+
+    def __init__(self, MODDLE_USERNAME, OPEN_STACK_VM_IP):
+        self.MODDLE_USERNAME = MODDLE_USERNAME
+        self.OPEN_STACK_VM_IP = OPEN_STACK_VM_IP
+
+
+        self.jump_host = self._FEP_HOSTNAME
+        self.jump_user = MODDLE_USERNAME
+
+        # Configuration for the Destination Host
+        self.dest_host = OPEN_STACK_VM_IP
+        self.dest_user = "student"
+
+
+        # 1. Connect to the Jump Host
+        self.jump_client = paramiko.SSHClient()
+        self.jump_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.jump_client.connect(
+            self.jump_host,
+            username=self.jump_user,
+            timeout=60
+        )
+
+        # 2. Establish a channel through the Jump Host to the Destination
+        self.jump_transport = self.jump_client.get_transport()
+        self.dest_addr = (self.dest_host, 22)
+        self.local_addr = ("127.0.0.1", 22)
+        self.channel = self.jump_transport.open_channel(
+            "direct-tcpip",
+            self.dest_addr,
+            self.local_addr,
+            timeout=60
+        )
+
+        # 3. Connect to the Destination Host using the channel as a socket
+        self.dest_client = paramiko.SSHClient()
+        self.dest_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.dest_client.connect(
+            self.dest_host,
+            username=self.dest_user,
+            sock=self.channel,
+            timeout=60
+        )
+
+
+
+    def exec_command(self, cmd):
+        _, stdout, stderr = self.dest_client.exec_command(cmd)
+        channel = stdout.channel
+
+        # Monitor both stdout & stderr
+        while not channel.exit_status_ready():
+            # Template: select.select([surse_citire], [surse_scriere], [erori], timeout)
+            rl, wl, xl = select.select([channel], [], [], 0.0)
+            
+            if rl:
+                if channel.recv_ready():
+                    data = channel.recv(1024).decode('utf-8')
+                    sys.stdout.write(data)
+                    sys.stdout.flush()
+                
+                if channel.recv_stderr_ready():
+                    error_data = channel.recv_stderr(1024).decode('utf-8')
+                    sys.stderr.write(error_data)
+                    sys.stderr.flush()
+
+        # Remaining buffer data:
+        while channel.recv_ready():
+            sys.stdout.write(channel.recv(1024).decode('utf-8'))
+        while channel.recv_stderr_ready():
+            sys.stderr.write(channel.recv_stderr(1024).decode('utf-8'))
+
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        exit_status = channel.recv_exit_status()
+
+        if exit_status != 0:
+            error_msg = stderr.read().decode('utf-8')
+            raise RuntimeError(f"Comanda a esuat cu status {exit_status}: {cmd}\nEroare: {error_msg}")
+        
+        return exit_status
+
+
+    def close():
+        self.dest_client.close()
+        self.jump_client.close()
+
+
+
 def main():
     # Bring all environment variables from .env
     load_dotenv()
@@ -97,6 +194,8 @@ def main():
         sys.exit(1)
 
     INSTANCE_NAME = f"cc_lab_{MODDLE_USERNAME}"
+
+    proxy_ssh_conn = None
 
 
     driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()))
@@ -117,9 +216,12 @@ def main():
 
         # --- AUTH & PROJECT ---
         print("[OTP] Te rog introdu codul manual.")
+        wait = WebDriverWait(driver, 120)
         wait.until(EC.presence_of_element_located((By.CLASS_NAME, "context-project")))
         selenium_webapp.enable_visual_click()
-        
+        wait = WebDriverWait(driver, 15)
+
+
         # Pas 8 & 9 din log-ul tau: Selectare Proiect
         selenium_webapp.click_on(wait, By.XPATH, XPATH_OPEN_STACK_CONTEXT_PROJECT)
         
@@ -177,18 +279,38 @@ def main():
         wait = WebDriverWait(driver, 15)
 
 
-        IP_ADDR = selenium_webapp.get_text(By.XPATH, XPATH_TOPMOST_IP_ADDR_TXT)
+        VM_IP = selenium_webapp.get_text(By.XPATH, XPATH_TOPMOST_IP_TXT)
 
         print()
-        print(f"VM IP: {IP_ADDR}")
-        print("[FINISH] Scriptul a fost executat complet.")
+        print(f"OpenStack VM IP: {VM_IP}")
+
+        proxy_ssh_conn = ProxyJumpSSH_Connection(MODDLE_USERNAME, VM_IP)
+
+
+        ssh_commands = [
+            "sudo apt update",
+            "sudo apt upgrade -y",
+            "git clone https://github.com/TrifanBogdan24/labvm-dotfiles.git",
+            "cd labvm-dotfiles/ && sudo ./install-tools.sh",
+            "cd labvm-dotfiles/ && ./install-configs.sh",
+            "sudo chsh -s /usr/bin/zsh student"
+        ]
+
+        for cmd in ssh_commands:
+            proxy_ssh_conn.exec_command(cmd)
+
+        print("\n[FINISH] Scriptul a fost executat complet.")
 
     except Exception as err:
         print(f"\n[EROARE NEASTEPTATA] {err}")
         raise err
     finally:
         input("\nApasa Enter pentru inchidere...")
+        
         driver.quit()
+
+        if proxy_ssh_conn is not None:
+            proxy_ssh_conn.close()
 
 if __name__ == "__main__":
     main()
