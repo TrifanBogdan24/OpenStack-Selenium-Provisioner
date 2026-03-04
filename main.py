@@ -13,6 +13,8 @@ import select
 import sys
 
 
+
+
 # VM Config Paramters
 IMAGE = "CC Template"
 FLAVOR = "g.medium"
@@ -95,44 +97,67 @@ class ProxyJumpSSH_Connection():
         self.MODDLE_USERNAME = MODDLE_USERNAME
         self.OPEN_STACK_VM_IP = OPEN_STACK_VM_IP
 
-
         self.jump_host = self._FEP_HOSTNAME
-        self.jump_user = MODDLE_USERNAME
+        self.jump_user = self.MODDLE_USERNAME
 
-        # Configuration for the Destination Host
-        self.dest_host = OPEN_STACK_VM_IP
+        self.dest_host = self.OPEN_STACK_VM_IP
         self.dest_user = "student"
 
+        max_retries = 5
+        for attempt in range(1, max_retries + 1):
+            try:
+                print(f"Incercare conectare {attempt}/{max_retries}...")
+                
+                # 1. Connect to the Jump Host
+                self.jump_client = paramiko.SSHClient()
+                self.jump_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                time.sleep(2)
+                self.jump_client.connect(
+                    self.jump_host,
+                    username=self.jump_user,
+                    timeout=60
+                )
+                time.sleep(2)
 
-        # 1. Connect to the Jump Host
-        self.jump_client = paramiko.SSHClient()
-        self.jump_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.jump_client.connect(
-            self.jump_host,
-            username=self.jump_user,
-            timeout=60
-        )
+                # 2. Establish a channel through the Jump Host to the Destination
+                self.jump_transport = self.jump_client.get_transport()
+                time.sleep(2)
+                while not self.jump_transport.is_active():
+                    time.sleep(1)
+                
+                self.dest_addr = (self.dest_host, 22)
+                self.local_addr = ("127.0.0.1", 22)
+                self.channel = self.jump_transport.open_channel(
+                    "direct-tcpip",
+                    self.dest_addr,
+                    self.local_addr,
+                    timeout=60
+                )
+                time.sleep(2)
 
-        # 2. Establish a channel through the Jump Host to the Destination
-        self.jump_transport = self.jump_client.get_transport()
-        self.dest_addr = (self.dest_host, 22)
-        self.local_addr = ("127.0.0.1", 22)
-        self.channel = self.jump_transport.open_channel(
-            "direct-tcpip",
-            self.dest_addr,
-            self.local_addr,
-            timeout=60
-        )
+                # 3. Connect to the Destination Host using the channel as a socket
+                self.dest_client = paramiko.SSHClient()
+                self.dest_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                time.sleep(2)
+                self.dest_client.connect(
+                    self.dest_host,
+                    username=self.dest_user,
+                    sock=self.channel,
+                    timeout=60
+                )
+                
+                print("Conexiune reusita!")
+                break 
 
-        # 3. Connect to the Destination Host using the channel as a socket
-        self.dest_client = paramiko.SSHClient()
-        self.dest_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.dest_client.connect(
-            self.dest_host,
-            username=self.dest_user,
-            sock=self.channel,
-            timeout=60
-        )
+            except Exception as e:
+                print(f"Eroare la conectare: {e}")
+                if attempt == max_retries:
+                    print("S-a atins numarul maxim de incercari. Conexiunea a esuat.")
+                    raise 
+                
+                if hasattr(self, 'jump_client'):
+                    self.jump_client.close()
+                time.sleep(5)
 
 
 
@@ -174,7 +199,7 @@ class ProxyJumpSSH_Connection():
         return exit_status
 
 
-    def close():
+    def close(self):
         self.dest_client.close()
         self.jump_client.close()
 
@@ -196,7 +221,6 @@ def main():
     INSTANCE_NAME = f"cc_lab_{MODDLE_USERNAME}"
 
     proxy_ssh_conn = None
-
 
     driver = webdriver.Firefox(service=Service(GeckoDriverManager().install()))
     wait = WebDriverWait(driver, 15)
@@ -282,9 +306,9 @@ def main():
         VM_IP = selenium_webapp.get_text(By.XPATH, XPATH_TOPMOST_IP_TXT)
 
         print()
-        print(f"OpenStack VM IP: {VM_IP}")
+        print(f"OpenStack VM IP: {VM_IP.strip()}")
 
-        proxy_ssh_conn = ProxyJumpSSH_Connection(MODDLE_USERNAME, VM_IP)
+        proxy_ssh_conn = ProxyJumpSSH_Connection(MODDLE_USERNAME, VM_IP.strip())
 
 
         ssh_commands = [
@@ -306,7 +330,7 @@ def main():
         raise err
     finally:
         input("\nApasa Enter pentru inchidere...")
-        
+    
         driver.quit()
 
         if proxy_ssh_conn is not None:
